@@ -103,6 +103,12 @@ RUN echo -e '\033[1;37m' > /etc/cogni_core.txt && \
     echo -e '\033[0m\033[0;37m\nSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
+# Create a JupyterLab configuration file to define terminado_settings
+RUN mkdir -p /etc/jupyter && \
+    echo "c.ServerApp.terminado_settings = {'shell_command': ['/bin/bash'], 'cwd': '/workspace'}" > /etc/jupyter/jupyter_server_config.py && \
+    # Set permissions for the config file
+    chmod 644 /etc/jupyter/jupyter_server_config.py
+
 # Create the startup script with debug steps
 COPY <<EOF /start.sh
 #!/bin/bash
@@ -127,10 +133,10 @@ if ss -tuln | grep -q ":8888 "; then
     echo "Port 8888 is already in use, attempting to free it..."
     fuser -k 8888/tcp || true
 fi
-# Start JupyterLab as the user with UID 1000, no token, allow origin, set terminal to start in /workspace
+# Start JupyterLab as the user with UID 1000, no token, allow origin, set root dir to /workspace
 echo "Starting JupyterLab..."
 RUNPOD_USER=\$(id -un 1000)
-su \$RUNPOD_USER -c "cd /workspace && python -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --ServerApp.token='' --ServerApp.password='' --ServerApp.allow_origin='*' --ServerApp.root_dir=/workspace --ServerApp.terminado_settings='{\"shell_command\": [\"/bin/bash\"], \"cwd\": \"/workspace\"}' &> /tmp/jupyter.log &"
+su \$RUNPOD_USER -c "cd /workspace && python -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --ServerApp.token='' --ServerApp.password='' --ServerApp.allow_origin='*' --ServerApp.root_dir=/workspace --config=/etc/jupyter/jupyter_server_config.py &> /tmp/jupyter.log &"
 echo "JupyterLab started"
 # Debug: Verify terminal working directory
 echo "Verifying terminal working directory..."
