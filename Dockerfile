@@ -71,20 +71,19 @@ RUN python -m pip install --no-cache-dir \
     ipywidgets \
     jupyter-archive
 
-# Install PyTorch 2.7.0 with CUDA 12.8 (as requested)
+# Install PyTorch 2.7.0 with CUDA 12.8
 RUN python -m pip install --no-cache-dir \
     torch==2.7.0 \
     torchvision==0.22.0 \
     torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128
 
-# Create the workspace directory and add a README to make it visible
+# Create the workspace directory (no files created)
 RUN mkdir -p /workspace && \
-    chmod -R 777 /workspace && \
-    echo "# Welcome to Cogni Core AI Workspace\nThis is your working directory for JupyterLab." > /workspace/README.md
+    chmod -R 777 /workspace
 
-# Create a custom welcome message with Cogni Core AI branding
-RUN echo -e '\033[1;34m\nCogni Core AI\n\033[0m\033[0;37mSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
+# Create a custom welcome message with CogniCore-AI branding (ASCII art for big font)
+RUN echo -e '\033[1;37m\n   _____       _       _____             _____ \n  / ____|     (_)     / ____|           / ____|\n | |    _ __  _  __ _| |     __ _ _ __ | |     \n | |   |  _ \| |/ _` | |    / _` |  _ \| |     \n | |___| | | | | (_| | |___| (_| | |_) | |____ \n  \_____|_| |_|_|\__, |_|____\__,_| .__/ \_____|\n                  __/ |           | |           \n                 |___/            |_|           \n\033[0m\033[0;37mSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
 # Create the startup script (use ss instead of netstat, redirect logs to /tmp)
@@ -98,9 +97,9 @@ if ss -tuln | grep -q ":8888 "; then
     echo "Port 8888 is already in use, attempting to free it..."
     fuser -k 8888/tcp || true
 fi
-# Start JupyterLab as root, no token, allow origin, redirect logs to /tmp
+# Start JupyterLab as root, no token, allow origin, set root_dir to /workspace
 echo "Starting JupyterLab..."
-python -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --allow-root --ServerApp.token="" --ServerApp.password="" --ServerApp.allow_origin="*" --ServerApp.preferred_dir=/workspace --ServerApp.terminado_settings='{"shell_command": ["/bin/bash"]}' &> /tmp/jupyter.log &
+python -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --allow-root --ServerApp.token="" --ServerApp.password="" --ServerApp.allow_origin="*" --ServerApp.root_dir=/workspace --ServerApp.terminado_settings='{"shell_command": ["/bin/bash"]}' &> /tmp/jupyter.log &
 echo "JupyterLab started"
 # Keep the container running
 tail -f /tmp/jupyter.log
