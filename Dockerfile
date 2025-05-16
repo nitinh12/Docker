@@ -99,30 +99,39 @@ JupyterLab is running on port 8888.\n\
     echo 'cat /etc/runpod.txt' >> /root/.bashrc && \
     echo 'echo -e "\nFor detailed documentation, visit:\n\033[1;34mhttps://docs.runpod.io/\033[0m\n\n"' >> /root/.bashrc
 
-# Create a startup script for JupyterLab
-RUN echo '#!/bin/bash\n\
-echo "Starting container..."\n\
-# Ensure shell is available for terminal\n\
-ln -sf /bin/bash /bin/sh\n\
-# Start Nginx for proxy\n\
-nginx &\n\
-# Start SSH server (optional)\n\
-/usr/sbin/sshd &\n\
-# Start JupyterLab as root, no token, allow origin\n\
-echo "Starting JupyterLab..."\n\
+# Create the startup script as a separate file and copy it
+COPY <<EOF /start.sh
+#!/bin/bash
+echo "Starting container..."
+# Ensure shell is available for terminal
+ln -sf /bin/bash /bin/sh
+# Start Nginx for proxy
+nginx &
+# Start SSH server (optional)
+/usr/sbin/sshd &
+# Start JupyterLab as root, no token, allow origin
+echo "Starting JupyterLab..."
 python3.13 -m jupyter lab \
     --ip=0.0.0.0 \
-    --port=${JUPYTER_PORT} \
+    --port=\${JUPYTER_PORT} \
     --no-browser \
     --allow-root \
     --ServerApp.token="" \
     --ServerApp.password="" \
     --ServerApp.allow_origin="*" \
     --ServerApp.preferred_dir=/workspace \
-    --ServerApp.terminado_settings="{\"shell_command\": [\"/bin/bash\"]}" \
-    &> /workspace/jupyter.log &\n\
-echo "JupyterLab started"' > /start.sh && \
-    chmod +x /start.sh
+    --ServerApp.terminado_settings='{"shell_command": ["/bin/bash"]}' \
+    &> /workspace/jupyter.log &
+echo "JupyterLab started"
+# Keep the container running
+tail -f /workspace/jupyter.log
+EOF
+
+# Ensure the script is executable
+RUN chmod +x /start.sh && \
+    # Verify the script exists and is executable during build
+    ls -l /start.sh && \
+    cat /start.sh
 
 # Set working directory to /workspace
 WORKDIR /workspace
