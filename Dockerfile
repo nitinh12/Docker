@@ -11,7 +11,7 @@ ENV LC_ALL=en_US.UTF-8
 # Set shell for build commands
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install basic dependencies (aligned with RunPod official templates)
+# Install basic dependencies (removed nginx)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common \
@@ -20,8 +20,6 @@ RUN apt-get update && \
         wget \
         git \
         libgl1 \
-        openssh-server \
-        nginx \
         locales \
     && \
     # Set locale
@@ -69,30 +67,6 @@ RUN python3.13 -m pip install --no-cache-dir \
 RUN mkdir -p /workspace && \
     chmod -R 777 /workspace
 
-# Set up SSH (optional, for RunPod compatibility)
-RUN mkdir /var/run/sshd && \
-    rm -f /etc/ssh/ssh_host_* && \
-    ssh-keygen -A
-
-# Nginx proxy configuration (fixed for proper formatting)
-RUN printf "worker_processes 1;\n\
-events {\n\
-    worker_connections 1024;\n\
-}\n\
-http {\n\
-    server {\n\
-        listen 8888;\n\
-        location / {\n\
-            proxy_pass http://127.0.0.1:8888;\n\
-            proxy_set_header Host \$host;\n\
-            proxy_set_header X-Real-IP \$remote_addr;\n\
-            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\n\
-            proxy_set_header X-Forwarded-Proto \$scheme;\n\
-        }\n\
-    }\n\
-}\n" > /etc/nginx/nginx.conf && \
-    echo "<html><body><h1>Welcome to RunPod</h1><p>Access JupyterLab at this URL.</p></body></html>" > /usr/share/nginx/html/readme.html
-
 # Create a welcome message
 RUN echo "Welcome to your RunPod container!\n\
 This image includes Python 3.13, JupyterLab 4.4.2, and PyTorch 2.7.0 with CUDA 12.8.\n\
@@ -101,16 +75,17 @@ JupyterLab is running on port 8888.\n\
     echo 'cat /etc/runpod.txt' >> /root/.bashrc && \
     echo 'echo -e "\nFor detailed documentation, visit:\n\033[1;34mhttps://docs.runpod.io/\033[0m\n\n"' >> /root/.bashrc
 
-# Create the startup script with proper command execution
+# Create the startup script (simplified, removed nginx and sshd)
 COPY <<EOF /start.sh
 #!/bin/bash
 echo "Starting container..."
 # Ensure shell is available for terminal
 ln -sf /bin/bash /bin/sh
-# Start Nginx for proxy
-nginx &
-# Start SSH server (optional)
-/usr/sbin/sshd &
+# Check if port 8888 is in use
+if netstat -tuln | grep -q ":8888 "; then
+    echo "Port 8888 is already in use, attempting to free it..."
+    fuser -k 8888/tcp || true
+fi
 # Start JupyterLab as root, no token, allow origin
 echo "Starting JupyterLab..."
 python3.13 -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --allow-root --ServerApp.token="" --ServerApp.password="" --ServerApp.allow_origin="*" --ServerApp.preferred_dir=/workspace --ServerApp.terminado_settings='{"shell_command": ["/bin/bash"]}' &> /workspace/jupyter.log &
