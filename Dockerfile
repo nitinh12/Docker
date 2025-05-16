@@ -74,9 +74,11 @@ RUN mkdir /var/run/sshd && \
     rm -f /etc/ssh/ssh_host_* && \
     ssh-keygen -A
 
-# Nginx proxy configuration (optional, for better RunPod integration)
-RUN echo "worker_processes 1;\n\
-events { worker_connections 1024; }\n\
+# Nginx proxy configuration (fixed for proper formatting)
+RUN printf "worker_processes 1;\n\
+events {\n\
+    worker_connections 1024;\n\
+}\n\
 http {\n\
     server {\n\
         listen 8888;\n\
@@ -88,7 +90,7 @@ http {\n\
             proxy_set_header X-Forwarded-Proto \$scheme;\n\
         }\n\
     }\n\
-}" > /etc/nginx/nginx.conf && \
+}\n" > /etc/nginx/nginx.conf && \
     echo "<html><body><h1>Welcome to RunPod</h1><p>Access JupyterLab at this URL.</p></body></html>" > /usr/share/nginx/html/readme.html
 
 # Create a welcome message
@@ -99,7 +101,7 @@ JupyterLab is running on port 8888.\n\
     echo 'cat /etc/runpod.txt' >> /root/.bashrc && \
     echo 'echo -e "\nFor detailed documentation, visit:\n\033[1;34mhttps://docs.runpod.io/\033[0m\n\n"' >> /root/.bashrc
 
-# Create the startup script as a separate file and copy it
+# Create the startup script with proper command execution
 COPY <<EOF /start.sh
 #!/bin/bash
 echo "Starting container..."
@@ -111,17 +113,7 @@ nginx &
 /usr/sbin/sshd &
 # Start JupyterLab as root, no token, allow origin
 echo "Starting JupyterLab..."
-python3.13 -m jupyter lab \
-    --ip=0.0.0.0 \
-    --port=\${JUPYTER_PORT} \
-    --no-browser \
-    --allow-root \
-    --ServerApp.token="" \
-    --ServerApp.password="" \
-    --ServerApp.allow_origin="*" \
-    --ServerApp.preferred_dir=/workspace \
-    --ServerApp.terminado_settings='{"shell_command": ["/bin/bash"]}' \
-    &> /workspace/jupyter.log &
+python3.13 -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --allow-root --ServerApp.token="" --ServerApp.password="" --ServerApp.allow_origin="*" --ServerApp.preferred_dir=/workspace --ServerApp.terminado_settings='{"shell_command": ["/bin/bash"]}' &> /workspace/jupyter.log &
 echo "JupyterLab started"
 # Keep the container running
 tail -f /workspace/jupyter.log
