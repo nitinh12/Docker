@@ -11,7 +11,7 @@ ENV LC_ALL=en_US.UTF-8
 # Set shell for build commands
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install basic dependencies (removed nginx)
+# Install basic dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common \
@@ -30,68 +30,75 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python 3.13 and dependencies
+# Install Python 3.13 as the only Python version, set as python and python3
 RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
+    # Install Python 3.13 and dependencies
     apt-get install -y --no-install-recommends \
         python3.13 \
         python3.13-dev \
         python3.13-venv \
         python3-setuptools \
         python3-wheel \
-        python3.12-dev \
         libexpat1-dev \
         zlib1g-dev && \
-    # Clean up
+    # Remove other Python versions to avoid conflicts
+    apt-get remove -y python3.12 python3.12-dev || true && \
+    # Purge any remaining Python versions and dependencies
+    apt-get purge -y python3.[0-9]* || true && \
     apt-get autoremove -y && \
+    # Clean up
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     # Install pip for Python 3.13 using get-pip.py
     curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13 && \
-    python3.13 -m pip install --upgrade pip
+    python3.13 -m pip install --upgrade pip && \
+    # Create symbolic links for python and python3
+    ln -sf /usr/bin/python3.13 /usr/bin/python && \
+    ln -sf /usr/bin/python3.13 /usr/bin/python3 && \
+    # Verify Python version
+    python --version && \
+    python3 --version
 
 # Install JupyterLab and additional utilities
-RUN python3.13 -m pip install --no-cache-dir \
+RUN python -m pip install --no-cache-dir \
     jupyterlab==4.4.2 \
     ipywidgets \
     jupyter-archive
 
-# Install PyTorch with CUDA support
-RUN python3.13 -m pip install --no-cache-dir \
+# Install PyTorch 2.7.0 with CUDA 12.8 (as requested)
+RUN python -m pip install --no-cache-dir \
     torch==2.7.0 \
     torchvision==0.22.0 \
     torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128
 
-# Create the workspace directory
+# Create the workspace directory and add a README to make it visible
 RUN mkdir -p /workspace && \
-    chmod -R 777 /workspace
+    chmod -R 777 /workspace && \
+    echo "# Welcome to Cogni Core AI Workspace\nThis is your working directory for JupyterLab." > /workspace/README.md
 
-# Create a welcome message
-RUN echo "Welcome to your RunPod container!\n\
-This image includes Python 3.13, JupyterLab 4.4.2, and PyTorch 2.7.0 with CUDA 12.8.\n\
-JupyterLab is running on port 8888.\n\
-" > /etc/runpod.txt && \
-    echo 'cat /etc/runpod.txt' >> /root/.bashrc && \
-    echo 'echo -e "\nFor detailed documentation, visit:\n\033[1;34mhttps://docs.runpod.io/\033[0m\n\n"' >> /root/.bashrc
+# Create a custom welcome message with Cogni Core AI branding
+RUN echo -e '\033[1;34m\nCogni Core AI\n\033[0m\033[0;37mSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
+    echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# Create the startup script (simplified, removed nginx and sshd)
+# Create the startup script (use ss instead of netstat, redirect logs to /tmp)
 COPY <<EOF /start.sh
 #!/bin/bash
 echo "Starting container..."
 # Ensure shell is available for terminal
 ln -sf /bin/bash /bin/sh
-# Check if port 8888 is in use
-if netstat -tuln | grep -q ":8888 "; then
+# Check if port 8888 is in use (using ss instead of netstat)
+if ss -tuln | grep -q ":8888 "; then
     echo "Port 8888 is already in use, attempting to free it..."
     fuser -k 8888/tcp || true
 fi
-# Start JupyterLab as root, no token, allow origin
+# Start JupyterLab as root, no token, allow origin, redirect logs to /tmp
 echo "Starting JupyterLab..."
-python3.13 -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --allow-root --ServerApp.token="" --ServerApp.password="" --ServerApp.allow_origin="*" --ServerApp.preferred_dir=/workspace --ServerApp.terminado_settings='{"shell_command": ["/bin/bash"]}' &> /workspace/jupyter.log &
+python -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --allow-root --ServerApp.token="" --ServerApp.password="" --ServerApp.allow_origin="*" --ServerApp.preferred_dir=/workspace --ServerApp.terminado_settings='{"shell_command": ["/bin/bash"]}' &> /tmp/jupyter.log &
 echo "JupyterLab started"
 # Keep the container running
-tail -f /workspace/jupyter.log
+tail -f /tmp/jupyter.log
 EOF
 
 # Ensure the script is executable
