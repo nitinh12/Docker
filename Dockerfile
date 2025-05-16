@@ -12,7 +12,7 @@ ENV HOME=/workspace
 # Set shell for build commands
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install basic dependencies (include iproute2 for ss command, figlet for welcome message, psmisc for fuser)
+# Install basic dependencies (include iproute2 for ss command, psmisc for fuser, figlet for welcome message)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common \
@@ -82,19 +82,26 @@ RUN python -m pip install --no-cache-dir \
     torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128
 
-# Create a non-root user to match RunPod's setup
-RUN useradd -m -u 1000 -s /bin/bash user && \
-    # Create the workspace directory
-    mkdir -p /workspace && \
-    # Ensure user has access to /workspace
-    chown -R user:user /workspace && \
-    chmod -R 777 /workspace
+# Check for an existing user with UID 1000; if none exists, create 'user'
+RUN if id -u 1000 > /dev/null 2>&1; then \
+        # If UID 1000 exists, get the username and ensure /workspace is owned by them
+        EXISTING_USER=$(id -un 1000) && \
+        mkdir -p /workspace && \
+        chown -R "$EXISTING_USER:$EXISTING_USER" /workspace && \
+        chmod -R 777 /workspace; \
+    else \
+        # If UID 1000 does not exist, create the 'user'
+        useradd -m -u 1000 -s /bin/bash user && \
+        mkdir -p /workspace && \
+        chown -R user:user /workspace && \
+        chmod -R 777 /workspace; \
+    fi
 
-# Create a custom welcome message using figlet with big font for CogniCore-AI
+# Create a custom welcome message using figlet with banner font for CogniCore-AI
 RUN echo -e '\033[1;37m' > /etc/cogni_core.txt && \
-    figlet -f big "CogniCore-AI" >> /etc/cogni_core.txt && \
+    figlet -f banner "CogniCore-AI" >> /etc/cogni_core.txt && \
     echo -e '\033[0m\033[0;37m\nSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
-    echo 'cat /etc/cogni_core.txt' >> /home/user/.bashrc
+    echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
 # Create the startup script with debug steps
 COPY <<EOF /start.sh
@@ -110,7 +117,9 @@ if [ -d "/workspace" ]; then
 else
     echo "/workspace does not exist, creating it..."
     mkdir -p /workspace
-    chown user:user /workspace
+    # Dynamically get the user with UID 1000
+    RUNPOD_USER=\$(id -un 1000)
+    chown \$RUNPOD_USER:\$RUNPOD_USER /workspace
     chmod -R 777 /workspace
 fi
 # Check if port 8888 is in use
@@ -118,13 +127,14 @@ if ss -tuln | grep -q ":8888 "; then
     echo "Port 8888 is already in use, attempting to free it..."
     fuser -k 8888/tcp || true
 fi
-# Start JupyterLab as user, no token, allow origin, set terminal to start in /workspace
+# Start JupyterLab as the user with UID 1000, no token, allow origin, set terminal to start in /workspace
 echo "Starting JupyterLab..."
-su - user -c "python -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --ServerApp.token='' --ServerApp.password='' --ServerApp.allow_origin='*' --ServerApp.root_dir=/workspace --ServerApp.terminado_settings='{\"shell_command\": [\"/bin/bash\"], \"cwd\": \"/workspace\"}' &> /tmp/jupyter.log &"
+RUNPOD_USER=\$(id -un 1000)
+su - \$RUNPOD_USER -c "python -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --ServerApp.token='' --ServerApp.password='' --ServerApp.allow_origin='*' --ServerApp.root_dir=/workspace --ServerApp.terminado_settings='{\"shell_command\": [\"/bin/bash\"], \"cwd\": \"/workspace\"}' &> /tmp/jupyter.log &"
 echo "JupyterLab started"
 # Debug: Verify terminal working directory
 echo "Verifying terminal working directory..."
-su - user -c "pwd >> /tmp/jupyter.log"
+su - \$RUNPOD_USER -c "pwd >> /tmp/jupyter.log"
 # Keep the container running
 tail -f /tmp/jupyter.log
 EOF
