@@ -30,10 +30,9 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python 3.13 as the only Python version, set as python and python3
+# Add deadsnakes PPA and install Python 3.13
 RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
-    # Install Python 3.13 and dependencies
     apt-get install -y --no-install-recommends \
         python3.13 \
         python3.13-dev \
@@ -42,16 +41,22 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
         python3-wheel \
         libexpat1-dev \
         zlib1g-dev && \
-    # Remove other Python versions to avoid conflicts
-    apt-get remove -y python3.12 python3.12-dev || true && \
-    # Purge any remaining Python versions and dependencies
-    apt-get purge -y python3.[0-9]* || true && \
-    apt-get autoremove -y && \
     # Clean up
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    # Install pip for Python 3.13 using get-pip.py
-    curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Remove other Python versions (except Python 3.13) to avoid conflicts
+RUN apt-get update && \
+    # Remove specific Python versions (e.g., 3.12) but preserve 3.13
+    apt-get remove -y python3.12 python3.12-dev || true && \
+    # Purge other Python versions, excluding 3.13
+    dpkg -l | grep -E 'python3\.[0-9]+' | grep -v 'python3\.13' | awk '{print $2}' | xargs -r apt-get purge -y || true && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install pip for Python 3.13 and set up symbolic links
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13 && \
     python3.13 -m pip install --upgrade pip && \
     # Create symbolic links for python and python3
     ln -sf /usr/bin/python3.13 /usr/bin/python && \
