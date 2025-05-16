@@ -7,11 +7,12 @@ ENV JUPYTER_PORT=8888
 ENV SHELL=/bin/bash
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
+ENV HOME=/workspace
 
 # Set shell for build commands
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install basic dependencies (include iproute2 for ss command)
+# Install basic dependencies (include iproute2 for ss command, figlet for welcome message, psmisc for fuser)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common \
@@ -22,7 +23,8 @@ RUN apt-get update && \
         libgl1 \
         locales \
         iproute2 \
-        fuser \
+        psmisc \
+        figlet \
     && \
     # Set locale
     echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
@@ -80,13 +82,19 @@ RUN python -m pip install --no-cache-dir \
     torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128
 
-# Create the workspace directory
-RUN mkdir -p /workspace && \
+# Create a non-root user to match RunPod's setup
+RUN useradd -m -u 1000 -s /bin/bash user && \
+    # Create the workspace directory
+    mkdir -p /workspace && \
+    # Ensure user has access to /workspace
+    chown -R user:user /workspace && \
     chmod -R 777 /workspace
 
-# Create a custom welcome message with plain text CogniCore-AI
-RUN echo -e '\033[1;37m\nCogniCore-AI\n============\033[0m\033[0;37m\nSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
-    echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
+# Create a custom welcome message using figlet with big font for CogniCore-AI
+RUN echo -e '\033[1;37m' > /etc/cogni_core.txt && \
+    figlet -f big "CogniCore-AI" >> /etc/cogni_core.txt && \
+    echo -e '\033[0m\033[0;37m\nSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
+    echo 'cat /etc/cogni_core.txt' >> /home/user/.bashrc
 
 # Create the startup script with debug steps
 COPY <<EOF /start.sh
@@ -102,6 +110,7 @@ if [ -d "/workspace" ]; then
 else
     echo "/workspace does not exist, creating it..."
     mkdir -p /workspace
+    chown user:user /workspace
     chmod -R 777 /workspace
 fi
 # Check if port 8888 is in use
@@ -109,10 +118,13 @@ if ss -tuln | grep -q ":8888 "; then
     echo "Port 8888 is already in use, attempting to free it..."
     fuser -k 8888/tcp || true
 fi
-# Start JupyterLab as root, no token, allow origin, set terminal to start in /workspace
+# Start JupyterLab as user, no token, allow origin, set terminal to start in /workspace
 echo "Starting JupyterLab..."
-python -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --allow-root --ServerApp.token="" --ServerApp.password="" --ServerApp.allow_origin="*" --ServerApp.terminado_settings='{"shell_command": ["/bin/bash"], "cwd": "/workspace"}' &> /tmp/jupyter.log &
+su - user -c "python -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --ServerApp.token='' --ServerApp.password='' --ServerApp.allow_origin='*' --ServerApp.root_dir=/workspace --ServerApp.terminado_settings='{\"shell_command\": [\"/bin/bash\"], \"cwd\": \"/workspace\"}' &> /tmp/jupyter.log &"
 echo "JupyterLab started"
+# Debug: Verify terminal working directory
+echo "Verifying terminal working directory..."
+su - user -c "pwd >> /tmp/jupyter.log"
 # Keep the container running
 tail -f /tmp/jupyter.log
 EOF
