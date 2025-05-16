@@ -7,12 +7,11 @@ ENV JUPYTER_PORT=8888
 ENV SHELL=/bin/bash
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
-ENV HOME=/workspace
 
 # Set shell for build commands
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install basic dependencies (include iproute2 for ss command, psmisc for fuser, figlet for welcome message)
+# Install basic dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common \
@@ -22,9 +21,6 @@ RUN apt-get update && \
         git \
         libgl1 \
         locales \
-        iproute2 \
-        psmisc \
-        figlet \
     && \
     # Set locale
     echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
@@ -82,32 +78,17 @@ RUN python -m pip install --no-cache-dir \
     torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128
 
-# Check for an existing user with UID 1000; if none exists, create 'user'
-RUN if id -u 1000 > /dev/null 2>&1; then \
-        # If UID 1000 exists, get the username and ensure /workspace is owned by them
-        EXISTING_USER=$(id -un 1000) && \
-        mkdir -p /workspace && \
-        chown -R "$EXISTING_USER:$EXISTING_USER" /workspace && \
-        chmod -R 777 /workspace; \
-    else \
-        # If UID 1000 does not exist, create the 'user'
-        useradd -m -u 1000 -s /bin/bash user && \
-        mkdir -p /workspace && \
-        chown -R user:user /workspace && \
-        chmod -R 777 /workspace; \
-    fi
+# Create the workspace directory
+RUN mkdir -p /workspace && \
+    chmod -R 777 /workspace
 
-# Create a custom welcome message using figlet with banner font for CogniCore-AI
-RUN echo -e '\033[1;37m' > /etc/cogni_core.txt && \
-    figlet -f banner "CogniCore-AI" >> /etc/cogni_core.txt && \
-    echo -e '\033[0m\033[0;37m\nSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
+# Create a custom welcome message with corrected CogniCore-AI ASCII art
+RUN echo -e '\033[1;37m\n #####  #######  #####  #    #  #####  #######  #######    #    # \n #    # #       #     # #   #  #     # #     #  #         #     # \n #    # #       #     # #  #   #     # #     #  #        #      # \n #    # #####   #     # ###    #     # #     #  #####   #       # \n #    # #       #     # #  #   #     # #     #  #       #       # \n #    # #       #     # #   #  #     # #     #  #       #       # \n #    # #######  #####  #    #  #####  #######  #       #######  # \n\033[0m\033[0;37mSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# Create a JupyterLab configuration file to define terminado_settings
-RUN mkdir -p /etc/jupyter && \
-    echo "c.ServerApp.terminado_settings = {'shell_command': ['/bin/bash'], 'cwd': '/workspace'}" > /etc/jupyter/jupyter_server_config.py && \
-    # Set permissions for the config file
-    chmod 644 /etc/jupyter/jupyter_server_config.py
+# Create a JupyterLab configuration file to set the root directory
+RUN mkdir -p /root/.jupyter && \
+    echo '{"ServerApp": {"root_dir": "/workspace"}}' > /root/.jupyter/jupyter_server_config.json
 
 # Create the startup script with debug steps
 COPY <<EOF /start.sh
@@ -123,24 +104,17 @@ if [ -d "/workspace" ]; then
 else
     echo "/workspace does not exist, creating it..."
     mkdir -p /workspace
-    # Dynamically get the user with UID 1000
-    RUNPOD_USER=\$(id -un 1000)
-    chown \$RUNPOD_USER:\$RUNPOD_USER /workspace
     chmod -R 777 /workspace
 fi
-# Check if port 8888 is in use
+# Check if port 8888 is in use (using ss instead of netstat)
 if ss -tuln | grep -q ":8888 "; then
     echo "Port 8888 is already in use, attempting to free it..."
     fuser -k 8888/tcp || true
 fi
-# Start JupyterLab as the user with UID 1000, no token, allow origin, set root dir to /workspace
+# Start JupyterLab as root, no token, allow origin, set root_dir to /workspace
 echo "Starting JupyterLab..."
-RUNPOD_USER=\$(id -un 1000)
-su \$RUNPOD_USER -c "cd /workspace && python -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --ServerApp.token='' --ServerApp.password='' --ServerApp.allow_origin='*' --ServerApp.root_dir=/workspace --config=/etc/jupyter/jupyter_server_config.py &> /tmp/jupyter.log &"
+python -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --allow-root --ServerApp.token="" --ServerApp.password="" --ServerApp.allow_origin="*" --ServerApp.root_dir=/workspace --ServerApp.terminado_settings='{"shell_command": ["/bin/bash"]}' &> /tmp/jupyter.log &
 echo "JupyterLab started"
-# Debug: Verify terminal working directory
-echo "Verifying terminal working directory..."
-su \$RUNPOD_USER -c "pwd >> /tmp/jupyter.log"
 # Keep the container running
 tail -f /tmp/jupyter.log
 EOF
