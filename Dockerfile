@@ -3,6 +3,8 @@ FROM ubuntu:24.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
+ENV JUPYTER_PORT=8888
+ENV SHELL=/bin/bash
 
 # Install basic dependencies
 RUN apt-get update && \
@@ -11,7 +13,9 @@ RUN apt-get update && \
         build-essential \
         curl \
         wget \
-        git && \
+        git \
+        openssh-server \
+        && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python 3.13 and dependencies
@@ -37,11 +41,35 @@ RUN python3.13 -m pip install jupyterlab==4.4.2
 # Install PyTorch with CUDA support
 RUN python3.13 -m pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 
-# Set working directory
-WORKDIR /app
+# Create the workspace directory
+RUN mkdir -p /workspace && \
+    chmod -R 777 /workspace
+
+# Create a startup script for JupyterLab
+RUN echo '#!/bin/bash\n\
+echo "Starting JupyterLab..."\n\
+# Ensure shell is available for terminal\n\
+ln -sf /bin/bash /bin/sh\n\
+# Start JupyterLab as root, no token, allow origin\n\
+python3.13 -m jupyter lab \
+    --ip=0.0.0.0 \
+    --port=${JUPYTER_PORT} \
+    --no-browser \
+    --allow-root \
+    --ServerApp.token="" \
+    --ServerApp.password="" \
+    --ServerApp.allow_origin="*" \
+    --ServerApp.preferred_dir=/workspace \
+    --ServerApp.terminado_settings="{\"shell_command\": [\"/bin/bash\"]}" \
+    &> /workspace/jupyter.log &\n\
+echo "JupyterLab started"' > /start_jupyter.sh && \
+    chmod +x /start_jupyter.sh
+
+# Set working directory to /workspace
+WORKDIR /workspace
 
 # Expose JupyterLab port
 EXPOSE 8888
 
-# Command to run JupyterLab
-CMD ["jupyter", "lab", "--ip=0.0.0.0", "--allow-root", "--no-browser"]
+# Use the startup script as the entrypoint
+ENTRYPOINT ["/start_jupyter.sh"]
