@@ -78,20 +78,34 @@ RUN python -m pip install --no-cache-dir \
     torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128
 
-# Create the workspace directory (no files created)
+# Create the workspace directory
 RUN mkdir -p /workspace && \
     chmod -R 777 /workspace
 
-# Create a custom welcome message with CogniCore-AI branding (ASCII art for big font)
-RUN echo -e '\033[1;37m\n   _____       _       _____             _____ \n  / ____|     (_)     / ____|           / ____|\n | |    _ __  _  __ _| |     __ _ _ __ | |     \n | |   |  _ \| |/ _` | |    / _` |  _ \| |     \n | |___| | | | | (_| | |___| (_| | |_) | |____ \n  \_____|_| |_|_|\__, |_|____\__,_| .__/ \_____|\n                  __/ |           | |           \n                 |___/            |_|           \n\033[0m\033[0;37mSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
+# Create a custom welcome message with corrected CogniCore-AI ASCII art
+RUN echo -e '\033[1;37m\n #####  #######  #####  #    #  #####  #######  #######    #    # \n #    # #       #     # #   #  #     # #     #  #         #     # \n #    # #       #     # #  #   #     # #     #  #        #      # \n #    # #####   #     # ###    #     # #     #  #####   #       # \n #    # #       #     # #  #   #     # #     #  #       #       # \n #    # #       #     # #   #  #     # #     #  #       #       # \n #    # #######  #####  #    #  #####  #######  #       #######  # \n\033[0m\033[0;37mSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# Create the startup script (use ss instead of netstat, redirect logs to /tmp)
+# Create a JupyterLab configuration file to set the root directory
+RUN mkdir -p /root/.jupyter && \
+    echo '{"ServerApp": {"root_dir": "/workspace"}}' > /root/.jupyter/jupyter_server_config.json
+
+# Create the startup script with debug steps
 COPY <<EOF /start.sh
 #!/bin/bash
 echo "Starting container..."
 # Ensure shell is available for terminal
 ln -sf /bin/bash /bin/sh
+# Debug: Verify /workspace exists and is accessible
+echo "Checking /workspace directory..."
+if [ -d "/workspace" ]; then
+    echo "/workspace exists"
+    ls -ld /workspace
+else
+    echo "/workspace does not exist, creating it..."
+    mkdir -p /workspace
+    chmod -R 777 /workspace
+fi
 # Check if port 8888 is in use (using ss instead of netstat)
 if ss -tuln | grep -q ":8888 "; then
     echo "Port 8888 is already in use, attempting to free it..."
