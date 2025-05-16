@@ -14,21 +14,21 @@ RUN apt-get update && \
         git && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python 3.13 and pip
+# Install Python 3.13 and dependencies
 RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y \
         python3.13 \
         python3.13-dev \
         python3.13-venv \
-        python3-pip \
         python3-setuptools \
         python3-wheel \
         python3.12-dev \
         libexpat1-dev \
         zlib1g-dev && \
     rm -rf /var/lib/apt/lists/* && \
-    python3.13 -m ensurepip --upgrade && \
+    # Install pip for Python 3.13 using get-pip.py
+    curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13 && \
     python3.13 -m pip install --upgrade pip
 
 # Install JupyterLab
