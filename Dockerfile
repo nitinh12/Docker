@@ -130,7 +130,7 @@ fi
 # Start JupyterLab as the user with UID 1000, no token, allow origin, set terminal to start in /workspace
 echo "Starting JupyterLab..."
 RUNPOD_USER=\$(id -un 1000)
-su \$RUNPOD_USER -c "cd /workspace && python -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --ServerApp.token='' --ServerApp.password='' --ServerApp.allow_origin='*' --ServerApp.root_dir=/workspace --ServerApp.terminado_settings=\"{\\\"shell_command\\\": [\\\"/bin/bash\\\"], \\\"cwd\\\": \\\"/workspace\\\"}\" &> /tmp/jupyter.log &"
+su \$RUNPOD_USER -c "cd /workspace && python -m jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT} --no-browser --ServerApp.token='' --ServerApp.password='' --ServerApp.allow_origin='*' --ServerApp.root_dir=/workspace --ServerApp.terminado_settings='{\"shell_command\": [\"/bin/bash\"], \"cwd\": \"/workspace\"}' &> /tmp/jupyter.log &"
 echo "JupyterLab started"
 # Debug: Verify terminal working directory
 echo "Verifying terminal working directory..."
