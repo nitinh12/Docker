@@ -21,7 +21,7 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     python3.13 \
     python3.13-dev \
     python3.13-venv \
-    python3.13-pip \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install JupyterLab
