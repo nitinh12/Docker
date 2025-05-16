@@ -1,48 +1,47 @@
 # Use Ubuntu 24.04 as the base image
 FROM ubuntu:24.04
 
-# Set environment variables to avoid interactive prompts during package installations
+# Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install necessary packages
+# Install basic dependencies
 RUN apt-get update && \
     apt-get install -y \
-    software-properties-common \
-    build-essential \
-    curl \
-    wget \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+        software-properties-common \
+        build-essential \
+        curl \
+        wget \
+        git && \
+    rm -rf /var/lib/apt/lists/*
 
-# Add deadsnakes PPA for Python 3.13
+# Install Python 3.13 and pip
 RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y \
-    python3.13 \
-    python3.13-dev \
-    python3.13-venv \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
+        python3.13 \
+        python3.13-dev \
+        python3.13-venv \
+        python3-pip \
+        python3-setuptools \
+        python3-wheel \
+        python3.12-dev \
+        libexpat1-dev \
+        zlib1g-dev && \
+    rm -rf /var/lib/apt/lists/* && \
+    python3.13 -m ensurepip --upgrade && \
+    python3.13 -m pip install --upgrade pip
 
 # Install JupyterLab
-RUN pip3.13 install --upgrade pip && \
-    pip3.13 install jupyterlab==4.4.2
+RUN python3.13 -m pip install jupyterlab==4.4.2
 
-# Install NVIDIA CUDA 12.8
-RUN apt-get update && \
-    apt-get install -y gnupg2 curl software-properties-common && \
-    curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/3bf863cc.pub  | apt-key add - && \
-    add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/  /" && \
-    apt-get update && \
-    apt-get install -y cuda-12-8 && \
-    rm -rf /var/lib/apt/lists/*
+# Install PyTorch with CUDA support
+RUN python3.13 -m pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 
-# Set CUDA environment variables
-ENV PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
-ENV LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+# Set working directory
+WORKDIR /app
 
-# Install PyTorch 2.7 with CUDA 12.8
-RUN pip3.13 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 
+# Expose JupyterLab port
+EXPOSE 8888
 
-# Set the default command to start JupyterLab
-CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root"]
+# Command to run JupyterLab
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--allow-root", "--no-browser"]
