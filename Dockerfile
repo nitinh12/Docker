@@ -76,21 +76,21 @@ RUN python -m pip install --no-cache-dir \
 # Create the workspace directory
 RUN mkdir -p /workspace && chmod -R 777 /workspace
 
-# Plain bold welcome message (no figlet)
+# Plain bold welcome message
 RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo -e 'Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# Create the startup script
+# Create the startup script inline
 COPY <<EOF /start.sh
 #!/bin/bash
 echo "Starting container..."
 
-# Ensure /workspace exists with correct permissions
+# Ensure /workspace exists
 mkdir -p /workspace
 chmod -R 777 /workspace
 
-# Link shell
+# Ensure shell works in terminals
 ln -sf /bin/bash /bin/sh
 
 # Free port 8888 if already in use
@@ -99,33 +99,34 @@ if ss -tuln | grep -q ":8888 "; then
     fuser -k 8888/tcp || true
 fi
 
-# Start JupyterLab with RunPod-style config
+# ✅ Start JupyterLab properly
 echo "Starting JupyterLab..."
 python -m jupyter lab \
-    --ip=0.0.0.0 \
-    --port=\${JUPYTER_PORT} \
-    --no-browser \
-    --allow-root \
-    --ServerApp.token="" \
-    --ServerApp.password="" \
-    --ServerApp.allow_origin="*" \
-    --ServerApp.root_dir=/workspace \
-    --ServerApp.terminado_settings='{"shell_command": ["/bin/bash"]}' &> /tmp/jupyter.log &
+  --ip=0.0.0.0 \
+  --port=\${JUPYTER_PORT:-8888} \
+  --no-browser \
+  --allow-root \
+  --ServerApp.token="" \
+  --ServerApp.password="" \
+  --ServerApp.allow_origin="*" \
+  --ServerApp.root_dir=/workspace \
+  --ServerApp.terminado_settings='{"shell_command": ["/bin/bash"]}' \
+  &> /tmp/jupyter.log &
 
 echo "JupyterLab started"
 tail -f /tmp/jupyter.log
 EOF
 
-# Make startup script executable
+# Ensure the script is executable
 RUN chmod +x /start.sh && \
     ls -l /start.sh && \
     cat /start.sh
 
-# Set the working directory
+# Set working directory
 WORKDIR /workspace
 
 # Expose JupyterLab port
 EXPOSE 8888
 
-# Launch container with the startup script
+# Use the startup script as entrypoint
 ENTRYPOINT ["/start.sh"]
