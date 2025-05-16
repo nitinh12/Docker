@@ -82,8 +82,8 @@ RUN python -m pip install --no-cache-dir \
 RUN mkdir -p /workspace && \
     chmod -R 777 /workspace
 
-# Create a custom welcome message with CogniCore-AI branding (ASCII art for big font)
-RUN echo -e '\033[1;37m\n   _____       _       _____             _____ \n  / ____|     (_)     / ____|           / ____|\n | |    _ __  _  __ _| |     __ _ _ __ | |     \n | |   |  _ \| |/ _` | |    / _` |  _ \| |     \n | |___| | | | | (_| | |___| (_| | |_) | |____ \n  \_____|_| |_|_|\__, |_|____\__,_| .__/ \_____|\n                  __/ |           | |           \n                 |___/            |_|           \n\033[0m\033[0;37mSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
+# Create a custom welcome message with CogniCore-AI branding (plain text, bold)
+RUN echo -e '\033[1;37m\nCogniCore-AI\n\033[0m\033[0;37mSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
 # Create the startup script (use ss instead of netstat, redirect logs to /tmp)
