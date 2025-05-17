@@ -76,7 +76,7 @@ RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo -e 'Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# ✅ Proper start.sh with JupyterLab starting in /workspace
+# ✅ Proper start.sh with root_dir=/
 RUN printf '#!/bin/bash\n\
 echo "Starting container..."\n\
 mkdir -p /workspace\n\
@@ -95,13 +95,13 @@ python -m jupyter lab \\\n\
   --ServerApp.token="" \\\n\
   --ServerApp.password="" \\\n\
   --ServerApp.allow_origin="*" \\\n\
-  --ServerApp.root_dir=/workspace \\\n\
+  --ServerApp.root_dir=/ \\\n\
   --ServerApp.terminado_settings="{\\"shell_command\\": [\\"/bin/bash\\"]}" \\\n\
   &> /tmp/jupyter.log &\n\
 echo "JupyterLab started"\n\
 tail -f /tmp/jupyter.log\n' > /start.sh && chmod +x /start.sh
 
-# ✅ Set terminal working dir to /workspace
+# ✅ Terminal starts in /workspace
 WORKDIR /workspace
 
 EXPOSE 8888
