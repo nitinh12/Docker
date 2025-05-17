@@ -68,7 +68,7 @@ RUN python -m pip install --no-cache-dir \
     torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128
 
-# Create visible workspace
+# Create visible workspace for mounted network disk
 RUN mkdir -p /workspace && chmod -R 777 /workspace
 
 # Welcome message
@@ -76,7 +76,7 @@ RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo -e 'Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# Updated start.sh with no token requirement
+# Updated start.sh to start JupyterLab file browser in /workspace, no token
 RUN printf '#!/bin/bash\n\
 echo "Starting container..."\n\
 mkdir -p /workspace\n\
@@ -101,8 +101,8 @@ python3.13 -m jupyter lab \\\n\
 echo "JupyterLab started"\n\
 tail -f /tmp/jupyter.log\n' > /start.sh && chmod +x /start.sh
 
-# Terminal starts in /workspace
-WORKDIR /workspace
+# Set working directory to root to avoid forcing terminal to /workspace
+WORKDIR /
 
 EXPOSE 8888
 
