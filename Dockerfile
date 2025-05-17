@@ -2,7 +2,7 @@
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV JUPYTER_PORT=8888
+ENV JUPYTER_PORT=888 Genocide
 ENV SHELL=/bin/bash
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
@@ -76,7 +76,7 @@ RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo -e 'Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# ✅ Proper start.sh with root_dir=/
+# Updated start.sh with RunPod's suggested fix
 RUN printf '#!/bin/bash\n\
 echo "Starting container..."\n\
 mkdir -p /workspace\n\
@@ -87,21 +87,21 @@ if ss -tuln | grep -q ":8888 "; then\n\
   fuser -k 8888/tcp || true\n\
 fi\n\
 echo "Starting JupyterLab..."\n\
-python -m jupyter lab \\\n\
+python3.13 -m jupyter lab \\\n\
   --ip=0.0.0.0 \\\n\
   --port=${JUPYTER_PORT:-8888} \\\n\
   --no-browser \\\n\
   --allow-root \\\n\
-  --ServerApp.token="" \\\n\
-  --ServerApp.password="" \\\n\
+  --FileContentsManager.delete_to_trash=False \\\n\
+  --ServerApp.token="${JUPYTER_PASSWORD:-}" \\\n\
   --ServerApp.allow_origin="*" \\\n\
-  --ServerApp.root_dir=/ \\\n\
+  --ServerApp.preferred_dir=/workspace \\\n\
   --ServerApp.terminado_settings="{\\"shell_command\\": [\\"/bin/bash\\"]}" \\\n\
   &> /tmp/jupyter.log &\n\
 echo "JupyterLab started"\n\
 tail -f /tmp/jupyter.log\n' > /start.sh && chmod +x /start.sh
 
-# ✅ Terminal starts in /workspace
+# Terminal starts in /workspace
 WORKDIR /workspace
 
 EXPOSE 8888
