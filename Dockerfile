@@ -8,7 +8,7 @@ ENV SHELL=/bin/bash
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install system packages
+# Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common \
@@ -45,8 +45,7 @@ RUN pip install --upgrade pip && \
     pip install --no-cache-dir \
         jupyterlab==4.4.2 \
         ipywidgets \
-        jupyter-archive \
-        notebook==7.3.3
+        jupyter-archive
 
 # Install PyTorch (separate command)
 RUN pip install --no-cache-dir \
@@ -55,7 +54,7 @@ RUN pip install --no-cache-dir \
     torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128
 
-# Create the workspace directory
+# Only ensure path exists — RunPod will mount over it
 RUN mkdir /workspace
 
 # Optional welcome message
@@ -64,9 +63,9 @@ RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc && \
     echo 'echo -e "\nFor RunPod guides: https://docs.runpod.io/\n"' >> /root/.bashrc
 
-# Entrypoint script
+# Start script
 RUN printf '#!/bin/bash\n\
-mkdir -p /workspace && chmod -R 777 /workspace\n\
+mkdir -p /workspace\n\
 ln -sf /bin/bash /bin/sh\n\
 echo "Launching JupyterLab..."\n\
 python -m jupyter lab \\\n\
@@ -83,11 +82,9 @@ python -m jupyter lab \\\n\
   &> /tmp/jupyter.log &\n\
 tail -f /tmp/jupyter.log\n' > /start.sh && chmod +x /start.sh
 
-# ✅ Keep WORKDIR as root so Jupyter sees /workspace as a folder
+# Match RunPod setup: don't set /workspace as WORKDIR
 WORKDIR /
 
-# Expose Jupyter port
 EXPOSE 8888
 
-# Start container
 ENTRYPOINT ["/start.sh"]
