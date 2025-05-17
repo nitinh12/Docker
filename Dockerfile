@@ -19,14 +19,14 @@ RUN apt-get update && \
         libgl1 \
         locales \
         iproute2 \
-        psmisc \
-        openssh-server \
-        nginx && \
+        psmisc && \
     echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Python 3.13
+# Install Python 3.13
 RUN add-apt-repository ppa:deadsnakes/ppa && apt-get update && \
     apt-get install -y --no-install-recommends \
         python3.13 \
@@ -40,34 +40,27 @@ RUN add-apt-repository ppa:deadsnakes/ppa && apt-get update && \
     rm get-pip.py && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip and install Python packages
+# Upgrade pip and install your required Python packages
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir \
         jupyterlab==4.4.2 \
         ipywidgets \
         jupyter-archive
 
-# Install PyTorch (separate command)
+# Install PyTorch packages from separate index
 RUN pip install --no-cache-dir \
     torch==2.7.0 \
     torchvision==0.22.0 \
     torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128
 
-# Only ensure path exists — RunPod will mount over it
+# Just create the workspace directory (RunPod mounts over it)
 RUN mkdir /workspace
-
-# Optional welcome message
-RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
-    echo -e 'Subscribe to my YouTube channel:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
-    echo 'cat /etc/cogni_core.txt' >> /root/.bashrc && \
-    echo 'echo -e "\nFor RunPod guides: https://docs.runpod.io/\n"' >> /root/.bashrc
 
 # Start script
 RUN printf '#!/bin/bash\n\
 mkdir -p /workspace\n\
 ln -sf /bin/bash /bin/sh\n\
-echo "Launching JupyterLab..."\n\
 python -m jupyter lab \\\n\
   --ip=0.0.0.0 \\\n\
   --port=${JUPYTER_PORT:-8888} \\\n\
@@ -82,7 +75,7 @@ python -m jupyter lab \\\n\
   &> /tmp/jupyter.log &\n\
 tail -f /tmp/jupyter.log\n' > /start.sh && chmod +x /start.sh
 
-# Match RunPod setup: don't set /workspace as WORKDIR
+# Set working directory as root to match official RunPod setup
 WORKDIR /
 
 EXPOSE 8888
