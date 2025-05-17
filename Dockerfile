@@ -8,49 +8,63 @@ ENV SHELL=/bin/bash
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# System packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    software-properties-common build-essential curl wget git \
-    libgl1 locales iproute2 psmisc && \
+# Install system packages
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        software-properties-common \
+        build-essential \
+        curl \
+        wget \
+        git \
+        libgl1 \
+        locales \
+        iproute2 \
+        psmisc \
+        openssh-server \
+        nginx && \
     echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen && \
-    apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Python 3.13
 RUN add-apt-repository ppa:deadsnakes/ppa && apt-get update && \
     apt-get install -y --no-install-recommends \
-    python3.13 python3.13-dev python3.13-venv \
-    python3-setuptools python3-wheel libexpat1-dev zlib1g-dev && \
+        python3.13 \
+        python3.13-dev \
+        python3.13-venv && \
+    ln -s /usr/bin/python3.13 /usr/bin/python && \
+    rm /usr/bin/python3 && \
+    ln -s /usr/bin/python3.13 /usr/bin/python3 && \
+    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
+    python get-pip.py && \
+    rm get-pip.py && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Remove old Python
-RUN apt-get update && apt-get remove -y python3.12 python3.12-dev || true && \
-    dpkg -l | grep -E 'python3\.[0-9]+' | grep -v 'python3\.13' | awk '{print $2}' | xargs -r apt-get purge -y || true && \
-    apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Upgrade pip and install Python packages
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir \
+        jupyterlab==4.4.2 \
+        ipywidgets \
+        jupyter-archive \
+        notebook==7.3.3
 
-# Pip for Python 3.13
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13 && \
-    python3.13 -m pip install --upgrade pip && \
-    ln -sf /usr/bin/python3.13 /usr/bin/python && ln -sf /usr/bin/python3.13 /usr/bin/python3
-
-# Python packages
-RUN python -m pip install --no-cache-dir \
-    jupyterlab==4.4.2 ipywidgets jupyter-archive
-
-# PyTorch (separate index)
-RUN python -m pip install --no-cache-dir \
-    torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 \
+# Install PyTorch (separate command)
+RUN pip install --no-cache-dir \
+    torch==2.7.0 \
+    torchvision==0.22.0 \
+    torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128
 
-# Make workspace
-RUN mkdir -p /workspace && chmod -R 777 /workspace
+# Create the workspace directory
+RUN mkdir /workspace
 
-# Welcome message
+# Optional welcome message
 RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo -e 'Subscribe to my YouTube channel:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
-    echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
+    echo 'cat /etc/cogni_core.txt' >> /root/.bashrc && \
+    echo 'echo -e "\nFor RunPod guides: https://docs.runpod.io/\n"' >> /root/.bashrc
 
-# Start script
+# Entrypoint script
 RUN printf '#!/bin/bash\n\
 mkdir -p /workspace && chmod -R 777 /workspace\n\
 ln -sf /bin/bash /bin/sh\n\
@@ -69,6 +83,11 @@ python -m jupyter lab \\\n\
   &> /tmp/jupyter.log &\n\
 tail -f /tmp/jupyter.log\n' > /start.sh && chmod +x /start.sh
 
-WORKDIR /workspace
+# ✅ Keep WORKDIR as root so Jupyter sees /workspace as a folder
+WORKDIR /
+
+# Expose Jupyter port
 EXPOSE 8888
+
+# Start container
 ENTRYPOINT ["/start.sh"]
