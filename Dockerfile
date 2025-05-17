@@ -1,17 +1,15 @@
-# Base: Ubuntu 24.04
+# Use Ubuntu 24.04 as the base image
 FROM ubuntu:24.04
 
-# Environment setup
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV JUPYTER_PORT=8888
 ENV SHELL=/bin/bash
 
-# Use bash for all shell commands
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# System packages
+# Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common \
@@ -54,17 +52,20 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13 && \
     ln -sf /usr/bin/python3.13 /usr/bin/python && \
     ln -sf /usr/bin/python3.13 /usr/bin/python3
 
-# Install Python packages
+# Install general Python packages
 RUN python -m pip install --no-cache-dir \
     jupyterlab==4.4.2 \
     ipywidgets \
-    jupyter-archive \
+    jupyter-archive
+
+# Install PyTorch with CUDA 12.8 from PyTorch index
+RUN python -m pip install --no-cache-dir \
     torch==2.7.0 \
     torchvision==0.22.0 \
     torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128
 
-# Workspace setup
+# Create visible workspace
 RUN mkdir -p /workspace && chmod -R 777 /workspace
 
 # Welcome message
@@ -72,7 +73,7 @@ RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo -e 'Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# Entrypoint: launch JupyterLab in /workspace
+# Create Jupyter start script
 RUN printf '#!/bin/bash\n\
 echo "Starting container..."\n\
 mkdir -p /workspace\n\
@@ -96,11 +97,9 @@ python -m jupyter lab \\\n\
   &> /tmp/jupyter.log &\n\
 tail -f /tmp/jupyter.log\n' > /start.sh && chmod +x /start.sh
 
-# Terminal will start here
+# Ensure terminals start in workspace
 WORKDIR /workspace
 
-# Port for Jupyter
 EXPOSE 8888
 
-# Entrypoint to launch Jupyter
 ENTRYPOINT ["/start.sh"]
