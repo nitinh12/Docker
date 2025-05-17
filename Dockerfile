@@ -76,7 +76,7 @@ RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo -e 'Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# Updated start.sh with RunPod's suggested fix
+# Updated start.sh with no token requirement
 RUN printf '#!/bin/bash\n\
 echo "Starting container..."\n\
 mkdir -p /workspace\n\
@@ -93,7 +93,7 @@ python3.13 -m jupyter lab \\\n\
   --no-browser \\\n\
   --allow-root \\\n\
   --FileContentsManager.delete_to_trash=False \\\n\
-  --ServerApp.token="${JUPYTER_PASSWORD:-}" \\\n\
+  --ServerApp.token="" \\\n\
   --ServerApp.allow_origin="*" \\\n\
   --ServerApp.preferred_dir=/workspace \\\n\
   --ServerApp.terminado_settings="{\\"shell_command\\": [\\"/bin/bash\\"]}" \\\n\
