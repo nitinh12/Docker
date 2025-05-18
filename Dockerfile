@@ -79,32 +79,39 @@ RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo -e 'Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# start.sh script to warm up CUDA and start JupyterLab
-RUN printf '#!/bin/bash\n\
-echo "Starting container..."\n\
-mkdir -p /workspace\n\
-chmod -R 777 /workspace\n\
-ln -sf /bin/bash /bin/sh\n\
-if ss -tuln | grep -q ":8888 "; then\n\
-  echo "Port 8888 is already in use, attempting to free it..."\n\
-  fuser -k 8888/tcp || true\n\
-fi\n\
-echo "Warming up CUDA..."\n\
-python -c "import torch; print(\'CUDA available:\', torch.cuda.is_available()); torch.randn(1, device=\'cuda\') if torch.cuda.is_available() else print(\'Running on CPU\')"\n\
-echo "Starting JupyterLab..."\n\
-python3.13 -m jupyter lab \\\n\
-  --ip=0.0.0.0 \\\n\
-  --port=${JUPYTER_PORT:-8888} \\\n\
-  --no-browser \\\n\
-  --allow-root \\\n\
-  --FileContentsManager.delete_to_trash=False \\\n\
-  --ServerApp.token="" \\\n\
-  --ServerApp.allow_origin="*" \\\n\
-  --ServerApp.preferred_dir=/workspace \\\n\
-  --ServerApp.terminado_settings="{\\"shell_command\\": [\\"/bin/bash\\"]}" \\\n\
-  &> /tmp/jupyter.log &\n\
-echo "JupyterLab started"\n\
-tail -f /tmp/jupyter.log\n' > /start.sh && chmod +x /start.sh
+# start.sh script using safe heredoc block
+RUN cat << 'EOF' > /start.sh && chmod +x /start.sh
+#!/bin/bash
+echo "Starting container..."
+mkdir -p /workspace
+chmod -R 777 /workspace
+ln -sf /bin/bash /bin/sh
+
+if ss -tuln | grep -q ":8888 "; then
+  echo "Port 8888 is already in use, attempting to free it..."
+  fuser -k 8888/tcp || true
+fi
+
+echo "Warming up CUDA..."
+python -c "import torch; print('CUDA available:', torch.cuda.is_available()); \
+  torch.randn(1, device='cuda') if torch.cuda.is_available() else print('Running on CPU')"
+
+echo "Starting JupyterLab..."
+python3.13 -m jupyter lab \
+  --ip=0.0.0.0 \
+  --port=${JUPYTER_PORT:-8888} \
+  --no-browser \
+  --allow-root \
+  --FileContentsManager.delete_to_trash=False \
+  --ServerApp.token="" \
+  --ServerApp.allow_origin="*" \
+  --ServerApp.preferred_dir=/workspace \
+  --ServerApp.terminado_settings="{\"shell_command\": [\"/bin/bash\"]}" \
+  &> /tmp/jupyter.log &
+
+echo "JupyterLab started"
+tail -f /tmp/jupyter.log
+EOF
 
 # Set working directory to root
 WORKDIR /
