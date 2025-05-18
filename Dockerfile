@@ -1,5 +1,5 @@
-# Use Ubuntu 24.04 as the base image
-FROM ubuntu:24.04
+# Use the correct NVIDIA CUDA base image with Ubuntu 24.04
+FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV JUPYTER_PORT=8888
@@ -9,7 +9,7 @@ ENV LC_ALL=en_US.UTF-8
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install system dependencies
+# Install system dependencies and Python 3.13
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common \
@@ -23,12 +23,7 @@ RUN apt-get update && \
         psmisc && \
     echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen && \
-    apt-get autoremove -y && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Python 3.13
-RUN add-apt-repository ppa:deadsnakes/ppa && \
+    add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         python3.13 \
@@ -38,14 +33,15 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
         python3-wheel \
         libexpat1-dev \
         zlib1g-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Clean up older Python
-RUN apt-get update && \
     apt-get remove -y python3.12 python3.12-dev || true && \
     dpkg -l | grep -E 'python3\.[0-9]+' | grep -v 'python3\.13' | awk '{print $2}' | xargs -r apt-get purge -y || true && \
     apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Node.js for JupyterLab build support
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -68,13 +64,9 @@ RUN python -m pip install --no-cache-dir \
     torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128
 
-# Pre-download large files (example: PyTorch model or dataset)
-# Replace this with the actual download command for your 5GB files
+# Pre-download large files (reverted to original placeholder)
 RUN mkdir -p /opt/models && \
     echo "Downloading large files during build..." && \
-    # Example: wget -O /opt/models/large_file.tar.gz "https://example.com/large_file.tar.gz" && \
-    # Example: tar -xzf /opt/models/large_file.tar.gz -C /opt/models && \
-    # Example: rm /opt/models/large_file.tar.gz && \
     echo "Large files downloaded and extracted"
 
 # Create visible workspace for mounted network disk
@@ -85,7 +77,7 @@ RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo -e 'Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# Updated start.sh to skip downloads if files exist
+# Updated start.sh to skip downloads if files exist (reverted authentication fix)
 RUN printf '#!/bin/bash\n\
 echo "Starting container..."\n\
 mkdir -p /workspace\n\
