@@ -68,6 +68,15 @@ RUN python -m pip install --no-cache-dir \
     torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128
 
+# Pre-download large files (example: PyTorch model or dataset)
+# Replace this with the actual download command for your 5GB files
+RUN mkdir -p /opt/models && \
+    echo "Downloading large files during build..." && \
+    # Example: wget -O /opt/models/large_file.tar.gz "https://example.com/large_file.tar.gz" && \
+    # Example: tar -xzf /opt/models/large_file.tar.gz -C /opt/models && \
+    # Example: rm /opt/models/large_file.tar.gz && \
+    echo "Large files downloaded and extracted"
+
 # Create visible workspace for mounted network disk
 RUN mkdir -p /workspace && chmod -R 777 /workspace
 
@@ -76,12 +85,20 @@ RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo -e 'Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# Updated start.sh to start JupyterLab file browser in /workspace, no token
+# Updated start.sh to skip downloads if files exist
 RUN printf '#!/bin/bash\n\
 echo "Starting container..."\n\
 mkdir -p /workspace\n\
 chmod -R 777 /workspace\n\
 ln -sf /bin/bash /bin/sh\n\
+echo "Checking contents of /workspace..."\n\
+ls -la /workspace >> /tmp/jupyter.log 2>&1\n\
+# Check for pre-downloaded files and skip download if they exist\n\
+if [ -d "/opt/models" ] && [ "$(ls -A /opt/models)" ]; then\n\
+  echo "Pre-downloaded files found in /opt/models, skipping download..." >> /tmp/jupyter.log\n\
+else\n\
+  echo "No pre-downloaded files found in /opt/models, you may need to download them manually..." >> /tmp/jupyter.log\n\
+fi\n\
 if ss -tuln | grep -q ":8888 "; then\n\
   echo "Port 8888 is already in use, attempting to free it..."\n\
   fuser -k 8888/tcp || true\n\
@@ -97,7 +114,7 @@ python3.13 -m jupyter lab \\\n\
   --ServerApp.allow_origin="*" \\\n\
   --ServerApp.preferred_dir=/workspace \\\n\
   --ServerApp.terminado_settings="{\\"shell_command\\": [\\"/bin/bash\\"]}" \\\n\
-  &> /tmp/jupyter.log &\n\
+  &>> /tmp/jupyter.log &\n\
 echo "JupyterLab started"\n\
 tail -f /tmp/jupyter.log\n' > /start.sh && chmod +x /start.sh
 
