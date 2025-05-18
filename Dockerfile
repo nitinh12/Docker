@@ -6,8 +6,6 @@ ENV JUPYTER_PORT=8888
 ENV SHELL=/bin/bash
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
-ENV PIP_NO_CACHE_DIR=false
-ENV PIP_CACHE_DIR=/root/.cache/pip
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -58,18 +56,26 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13 && \
     ln -sf /usr/bin/python3.13 /usr/bin/python3
 
 # Install JupyterLab and tools
-RUN python -m pip install \
+RUN python -m pip install --no-cache-dir \
     jupyterlab==4.4.2 \
     ipywidgets \
     jupyter-archive
 
-# Install PyTorch with CUDA 12.8 and preload torch (CPU-safe)
-RUN python -m pip install \
+# Install PyTorch with CUDA 12.8
+RUN python -m pip install --no-cache-dir \
     torch==2.7.0 \
     torchvision==0.22.0 \
     torchaudio==2.7.0 \
-    --index-url https://download.pytorch.org/whl/cu128 && \
-    python -c "import torch; torch.nn.functional.softmax(torch.randn(2, 2), dim=1)"
+    --index-url https://download.pytorch.org/whl/cu128
+
+# Pre-download large files (example: PyTorch model or dataset)
+# Replace this with the actual download command for your 5GB files
+RUN mkdir -p /opt/models && \
+    echo "Downloading large files during build..." && \
+    # Example: wget -O /opt/models/large_file.tar.gz "https://example.com/large_file.tar.gz" && \
+    # Example: tar -xzf /opt/models/large_file.tar.gz -C /opt/models && \
+    # Example: rm /opt/models/large_file.tar.gz && \
+    echo "Large files downloaded and extracted"
 
 # Create visible workspace for mounted network disk
 RUN mkdir -p /workspace && chmod -R 777 /workspace
@@ -79,41 +85,40 @@ RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo -e 'Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# Safe heredoc-based start.sh script
-RUN bash -c 'cat > /start.sh <<EOF
-#!/bin/bash
-echo "Starting container..."
-mkdir -p /workspace
-chmod -R 777 /workspace
-ln -sf /bin/bash /bin/sh
+# Updated start.sh to skip downloads if files exist
+RUN printf '#!/bin/bash\n\
+echo "Starting container..."\n\
+mkdir -p /workspace\n\
+chmod -R 777 /workspace\n\
+ln -sf /bin/bash /bin/sh\n\
+echo "Checking contents of /workspace..."\n\
+ls -la /workspace >> /tmp/jupyter.log 2>&1\n\
+# Check for pre-downloaded files and skip download if they exist\n\
+if [ -d "/opt/models" ] && [ "$(ls -A /opt/models)" ]; then\n\
+  echo "Pre-downloaded files found in /opt/models, skipping download..." >> /tmp/jupyter.log\n\
+else\n\
+  echo "No pre-downloaded files found in /opt/models, you may need to download them manually..." >> /tmp/jupyter.log\n\
+fi\n\
+if ss -tuln | grep -q ":8888 "; then\n\
+  echo "Port 8888 is already in use, attempting to free it..."\n\
+  fuser -k 8888/tcp || true\n\
+fi\n\
+echo "Starting JupyterLab..."\n\
+python3.13 -m jupyter lab \\\n\
+  --ip=0.0.0.0 \\\n\
+  --port=${JUPYTER_PORT:-8888} \\\n\
+  --no-browser \\\n\
+  --allow-root \\\n\
+  --FileContentsManager.delete_to_trash=False \\\n\
+  --ServerApp.token="" \\\n\
+  --ServerApp.allow_origin="*" \\\n\
+  --ServerApp.preferred_dir=/workspace \\\n\
+  --ServerApp.terminado_settings="{\\"shell_command\\": [\\"/bin/bash\\"]}" \\\n\
+  &>> /tmp/jupyter.log &\n\
+echo "JupyterLab started"\n\
+tail -f /tmp/jupyter.log\n' > /start.sh && chmod +x /start.sh
 
-if ss -tuln | grep -q ":8888 "; then
-  echo "Port 8888 is already in use, attempting to free it..."
-  fuser -k 8888/tcp || true
-fi
-
-echo "Warming up CUDA..."
-python -c "import torch; print(\\"CUDA available:\\", torch.cuda.is_available()); \
-  torch.randn(1, device=\\"cuda\\") if torch.cuda.is_available() else print(\\"Running on CPU\\")"
-
-echo "Starting JupyterLab..."
-python3.13 -m jupyter lab \
-  --ip=0.0.0.0 \
-  --port=\${JUPYTER_PORT:-8888} \
-  --no-browser \
-  --allow-root \
-  --FileContentsManager.delete_to_trash=False \
-  --ServerApp.token="" \
-  --ServerApp.allow_origin="*" \
-  --ServerApp.preferred_dir=/workspace \
-  --ServerApp.terminado_settings="{\\"shell_command\\": [\\"/bin/bash\\"]}" \
-  &> /tmp/jupyter.log &
-
-echo "JupyterLab started"
-tail -f /tmp/jupyter.log
-EOF' && chmod +x /start.sh
-
-# Set working directory to root
+# Set working directory to root to avoid forcing terminal to /workspace
 WORKDIR /
 
 EXPOSE 8888
