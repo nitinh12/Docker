@@ -10,3 +10,6 @@
                      /$$  \ $$                                                                                
                     |  $$$$$$/                                                                                
                      \______/                                                                                 
+
+Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:
+https://www.youtube.com/@CogniCore-AI
