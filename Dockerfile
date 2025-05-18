@@ -79,8 +79,8 @@ RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo -e 'Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# start.sh script using safe heredoc block
-RUN cat << 'EOF' > /start.sh && chmod +x /start.sh
+# Safe heredoc-based start.sh script
+RUN bash -c 'cat > /start.sh <<EOF
 #!/bin/bash
 echo "Starting container..."
 mkdir -p /workspace
@@ -93,25 +93,25 @@ if ss -tuln | grep -q ":8888 "; then
 fi
 
 echo "Warming up CUDA..."
-python -c "import torch; print('CUDA available:', torch.cuda.is_available()); \
-  torch.randn(1, device='cuda') if torch.cuda.is_available() else print('Running on CPU')"
+python -c "import torch; print(\\"CUDA available:\\", torch.cuda.is_available()); \
+  torch.randn(1, device=\\"cuda\\") if torch.cuda.is_available() else print(\\"Running on CPU\\")"
 
 echo "Starting JupyterLab..."
 python3.13 -m jupyter lab \
   --ip=0.0.0.0 \
-  --port=${JUPYTER_PORT:-8888} \
+  --port=\${JUPYTER_PORT:-8888} \
   --no-browser \
   --allow-root \
   --FileContentsManager.delete_to_trash=False \
   --ServerApp.token="" \
   --ServerApp.allow_origin="*" \
   --ServerApp.preferred_dir=/workspace \
-  --ServerApp.terminado_settings="{\"shell_command\": [\"/bin/bash\"]}" \
+  --ServerApp.terminado_settings="{\\"shell_command\\": [\\"/bin/bash\\"]}" \
   &> /tmp/jupyter.log &
 
 echo "JupyterLab started"
 tail -f /tmp/jupyter.log
-EOF
+EOF' && chmod +x /start.sh
 
 # Set working directory to root
 WORKDIR /
