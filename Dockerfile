@@ -57,19 +57,19 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13 && \
     ln -sf /usr/bin/python3.13 /usr/bin/python && \
     ln -sf /usr/bin/python3.13 /usr/bin/python3
 
-# Install JupyterLab and tools (without --no-cache-dir)
+# Install JupyterLab and tools
 RUN python -m pip install \
     jupyterlab==4.4.2 \
     ipywidgets \
     jupyter-archive
 
-# Install PyTorch with CUDA 12.8 and preload CUDA & Triton
+# Install PyTorch with CUDA 12.8 and preload torch (CPU-safe)
 RUN python -m pip install \
     torch==2.7.0 \
     torchvision==0.22.0 \
     torchaudio==2.7.0 \
     --index-url https://download.pytorch.org/whl/cu128 && \
-    python -c "import torch; torch.nn.functional.softmax(torch.randn(2, 2, device='cuda'), dim=1)"
+    python -c "import torch; torch.nn.functional.softmax(torch.randn(2, 2), dim=1)"
 
 # Create visible workspace for mounted network disk
 RUN mkdir -p /workspace && chmod -R 777 /workspace
@@ -79,7 +79,7 @@ RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
     echo -e 'Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
     echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
 
-# Updated start.sh to start JupyterLab file browser in /workspace, no token
+# start.sh script to warm up CUDA and start JupyterLab
 RUN printf '#!/bin/bash\n\
 echo "Starting container..."\n\
 mkdir -p /workspace\n\
@@ -89,6 +89,8 @@ if ss -tuln | grep -q ":8888 "; then\n\
   echo "Port 8888 is already in use, attempting to free it..."\n\
   fuser -k 8888/tcp || true\n\
 fi\n\
+echo "Warming up CUDA..."\n\
+python -c "import torch; print(\'CUDA available:\', torch.cuda.is_available()); torch.randn(1, device=\'cuda\') if torch.cuda.is_available() else print(\'Running on CPU\')"\n\
 echo "Starting JupyterLab..."\n\
 python3.13 -m jupyter lab \\\n\
   --ip=0.0.0.0 \\\n\
@@ -104,6 +106,7 @@ python3.13 -m jupyter lab \\\n\
 echo "JupyterLab started"\n\
 tail -f /tmp/jupyter.log\n' > /start.sh && chmod +x /start.sh
 
+# Set working directory to root
 WORKDIR /
 
 EXPOSE 8888
