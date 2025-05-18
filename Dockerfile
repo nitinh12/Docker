@@ -75,8 +75,9 @@ RUN mkdir -p /workspace && chmod -R 777 /workspace
 # Copy the ASCII art file for the welcome message
 COPY cognicore.txt /etc/cognicore.txt
 
-# Update .bashrc to display the ASCII art on terminal startup
-RUN echo 'cat /etc/cognicore.txt' >> /root/.bashrc
+# Update .bashrc to display the ASCII art logo and additional text
+RUN echo 'cat /etc/cognicore.txt' >> /root/.bashrc && \
+    echo 'echo -e "\nSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n\n"' >> /root/.bashrc
 
 # Updated start.sh to skip downloads if files exist (reverted authentication fix)
 RUN printf '#!/bin/bash\n\
