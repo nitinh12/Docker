@@ -1,5 +1,5 @@
 # Use the correct NVIDIA CUDA base image with Ubuntu 24.04
-FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
+FROM nvidia/cuda:12.8.1-cudnn-devel-Ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV JUPYTER_PORT=8888
@@ -72,10 +72,11 @@ RUN mkdir -p /opt/models && \
 # Create visible workspace for mounted network disk
 RUN mkdir -p /workspace && chmod -R 777 /workspace
 
-# Welcome message
-RUN echo -e '\n\033[1mCogniCore-AI\033[0m\n' > /etc/cogni_core.txt && \
-    echo -e 'Subscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n' >> /etc/cogni_core.txt && \
-    echo 'cat /etc/cogni_core.txt' >> /root/.bashrc
+# Copy the ASCII art file for the welcome message
+COPY cognicore.txt /etc/cognicore.txt
+
+# Update .bashrc to display the ASCII art on terminal startup
+RUN echo 'cat /etc/cognicore.txt' >> /root/.bashrc
 
 # Updated start.sh to skip downloads if files exist (reverted authentication fix)
 RUN printf '#!/bin/bash\n\
