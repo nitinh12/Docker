@@ -1,5 +1,5 @@
-# Use the correct NVIDIA CUDA base image with Ubuntu 24.04
-FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
+# Use the updated NVIDIA CUDA base image with Ubuntu 22.04
+FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV JUPYTER_PORT=8888
