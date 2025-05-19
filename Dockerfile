@@ -1,5 +1,5 @@
 # Use the correct NVIDIA CUDA base image with Ubuntu 24.04
-FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
+FROM nvidia/cuda:12.8.1-cudnn-devel-Ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV JUPYTER_PORT=8888
@@ -73,24 +73,38 @@ RUN mkdir -p /opt/models && \
 RUN mkdir -p /workspace && chmod -R 777 /workspace
 
 # Install ComfyUI and ComfyUI-Manager during build (from install_comfyui_venv_pytorch.sh)
+# Step 1: Install system dependencies for ComfyUI
 RUN apt-get update && \
     apt-get install -y git python3 python3-venv python3-pip wget cmake pkg-config && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    mkdir -p /workspace && cd /workspace && \
-    git clone https://github.com/comfyanonymous/ComfyUI.git && \
-    cd ComfyUI && \
+    rm -rf /var/lib/apt/lists/*
+
+# Step 2: Clone ComfyUI
+RUN mkdir -p /workspace && cd /workspace && \
+    git clone https://github.com/comfyanonymous/ComfyUI.git
+
+# Step 3: Set up virtual environment and install dependencies
+RUN cd /workspace/ComfyUI && \
     python3.13 -m venv venv && \
     . venv/bin/activate && \
     pip install --upgrade pip && \
-    pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128 && \
-    pip install -r requirements.txt && \
+    pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
+
+# Step 4: Install ComfyUI dependencies
+RUN cd /workspace/ComfyUI && \
+    . venv/bin/activate && \
+    pip install -r requirements.txt
+
+# Step 5: Clone and install ComfyUI-Manager
+RUN cd /workspace/ComfyUI && \
     mkdir -p custom_nodes && \
     cd custom_nodes && \
     git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
     cd ComfyUI-Manager && \
-    pip install -r requirements.txt && \
-    chmod +x /workspace/ComfyUI/main.py
+    /workspace/ComfyUI/venv/bin/pip install -r requirements.txt
+
+# Step 6: Set execute permissions
+RUN chmod +x /workspace/ComfyUI/main.py
 
 # Copy the ASCII art file for the welcome message
 COPY cognicore.txt /etc/cognicore.txt
