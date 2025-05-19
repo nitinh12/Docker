@@ -1,5 +1,5 @@
 # Use the correct NVIDIA CUDA base image with Ubuntu 24.04
-FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
+FROM nvidia/cuda:12.8.1-cudnn-devel-Ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV JUPYTER_PORT=8888
@@ -72,6 +72,26 @@ RUN mkdir -p /opt/models && \
 # Create visible workspace for mounted network disk
 RUN mkdir -p /workspace && chmod -R 777 /workspace
 
+# Install ComfyUI and ComfyUI-Manager during build (from install_comfyui_venv_pytorch.sh)
+RUN apt-get update && \
+    apt-get install -y git python3 python3-venv python3-pip wget cmake pkg-config && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /workspace && cd /workspace && \
+    git clone https://github.com/comfyanonymous/ComfyUI.git && \
+    cd ComfyUI && \
+    python3.13 -m venv venv && \
+    . venv/bin/activate && \
+    pip install --upgrade pip && \
+    pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128 && \
+    pip install -r requirements.txt && \
+    mkdir -p custom_nodes && \
+    cd custom_nodes && \
+    git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
+    cd ComfyUI-Manager && \
+    pip install -r requirements.txt && \
+    chmod +x /workspace/ComfyUI/main.py
+
 # Copy the ASCII art file for the welcome message
 COPY cognicore.txt /etc/cognicore.txt
 
@@ -79,7 +99,7 @@ COPY cognicore.txt /etc/cognicore.txt
 RUN echo 'cat /etc/cognicore.txt' >> /root/.bashrc && \
     echo 'echo -e "\nSubscribe to my YouTube channel for the latest automatic install scripts for RunPod:\n\033[1;34mhttps://www.youtube.com/@CogniCore-AI\033[0m\n\n"' >> /root/.bashrc
 
-# Updated start.sh to skip downloads if files exist (reverted authentication fix)
+# Updated start.sh to start both JupyterLab and ComfyUI
 RUN printf '#!/bin/bash\n\
 echo "Starting container..."\n\
 mkdir -p /workspace\n\
@@ -97,6 +117,15 @@ if ss -tuln | grep -q ":8888 "; then\n\
   echo "Port 8888 is already in use, attempting to free it..."\n\
   fuser -k 8888/tcp || true\n\
 fi\n\
+if ss -tuln | grep -q ":3001 "; then\n\
+  echo "Port 3001 is already in use, attempting to free it..."\n\
+  fuser -k 3001/tcp || true\n\
+fi\n\
+echo "Starting ComfyUI..."\n\
+cd /workspace/ComfyUI\n\
+source venv/bin/activate\n\
+python main.py --listen --port 3001 &>> /tmp/comfyui.log &\n\
+echo "ComfyUI started"\n\
 echo "Starting JupyterLab..."\n\
 python3.13 -m jupyter lab \\\n\
   --ip=0.0.0.0 \\\n\
@@ -116,5 +145,6 @@ tail -f /tmp/jupyter.log\n' > /start.sh && chmod +x /start.sh
 WORKDIR /
 
 EXPOSE 8888
+EXPOSE 3001
 
 ENTRYPOINT ["/start.sh"]
