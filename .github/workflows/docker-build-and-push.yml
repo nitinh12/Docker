@@ -25,6 +25,6 @@ jobs:
           context: .
           file: Dockerfile
           tags: |
-            cognicoreai/custom_image:latest
-            cognicoreai/custom_image:24.04-py3.13-jupyterlab4.4.2-pytorch2.7-cuda12.8
+            cognicoreai/runpod_custom_image:latest
+            cognicoreai/runpod_custom_image:python3.12-pytorch2.7-cuda12.8-ju[yterlabs4.4.2-ubuntu22.04
           push: true
