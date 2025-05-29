@@ -1,5 +1,5 @@
-# Use the correct NVIDIA CUDA base image with Ubuntu 24.04
-FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
+# Use the new NVIDIA CUDA base image with Ubuntu 22.04
+FROM nvidia/cuda:12.8.1-cudnn-devel-Ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV JUPYTER_PORT=8888
@@ -9,7 +9,7 @@ ENV LC_ALL=en_US.UTF-8
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install system dependencies and Python 3.13
+# Install system dependencies and Python 3.12
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         software-properties-common \
@@ -26,15 +26,15 @@ RUN apt-get update && \
     add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3.13 \
-        python3.13-dev \
-        python3.13-venv \
+        python3.12 \
+        python3.12-dev \
+        python3.12-venv \
         python3-setuptools \
         python3-wheel \
         libexpat1-dev \
         zlib1g-dev && \
-    apt-get remove -y python3.12 python3.12-dev || true && \
-    dpkg -l | grep -E 'python3\.[0-9]+' | grep -v 'python3\.13' | awk '{print $2}' | xargs -r apt-get purge -y || true && \
+    apt-get remove -y python3.10 python3.10-dev || true && \
+    dpkg -l | grep -E 'python3\.[0-9]+' | grep -v 'python3\.12' | awk '{print $2}' | xargs -r apt-get purge -y || true && \
     apt-get autoremove -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -46,10 +46,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     rm -rf /var/lib/apt/lists/*
 
 # Pip and symlinks
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13 && \
-    python3.13 -m pip install --upgrade pip && \
-    ln -sf /usr/bin/python3.13 /usr/bin/python && \
-    ln -sf /usr/bin/python3.13 /usr/bin/python3
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12 && \
+    python3.12 -m pip install --upgrade pip && \
+    ln -sf /usr/bin/python3.12 /usr/bin/python && \
+    ln -sf /usr/bin/python3.12 /usr/bin/python3
 
 # Install JupyterLab and tools
 RUN python -m pip install --no-cache-dir \
@@ -98,7 +98,7 @@ if ss -tuln | grep -q ":8888 "; then\n\
   fuser -k 8888/tcp || true\n\
 fi\n\
 echo "Starting JupyterLab..."\n\
-python3.13 -m jupyter lab \\\n\
+python3.12 -m jupyter lab \\\n\
   --ip=0.0.0.0 \\\n\
   --port=${JUPYTER_PORT:-8888} \\\n\
   --no-browser \\\n\
